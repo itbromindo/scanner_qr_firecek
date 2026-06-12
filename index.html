@@ -615,6 +615,14 @@
         // Firecek specialized router helper
         function resolveRedirectTarget(content) {
             const trimmed = content.trim();
+            
+            // Explicitly handle Firecek codes to prevent any encoding/regex issues
+            if (trimmed.startsWith('FE.CEK')) {
+                const finalUrl = `https://web.firecek.com/d/${decodeURIComponent(trimmed)}`;
+                console.log("Firecek Code detected. URL:", finalUrl);
+                return finalUrl;
+            }
+
             if (isValidURL(trimmed)) {
                 if (!/^https?:\/\//i.test(trimmed)) {
                     return `https://${trimmed}`;
@@ -622,7 +630,6 @@
                 return trimmed;
             } else {
                 // Reconstruct plain data to specific Firecek path
-                // We decode first to handle cases where QR might already be encoded
                 const cleanContent = decodeURIComponent(trimmed);
                 const finalUrl = `https://web.firecek.com/d/${cleanContent}`;
                 console.log("Redirecting to:", finalUrl);
