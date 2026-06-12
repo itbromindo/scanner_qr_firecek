@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firecek QR Scanner</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for beautiful modern UI icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- HTML5-QRCode Library for Web-based scanning -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        /* Smooth scanning laser animation matching Firecek Blue */
+        @keyframes scan {
+            0% {
+                top: 0%;
+            }
+
+            50% {
+                top: 100%;
+            }
+
+            100% {
+                top: 0%;
+            }
+        }
+
+        .laser-line {
+            animation: scan 2.5s linear infinite;
+        }
+
+        /* Tap feedback active states */
+        .active-tap:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+
+<body class="bg-[#F8FAFC] text-slate-800 font-sans min-h-screen flex flex-col justify-between">
+
+    <!-- Header Section matching screen capture (FIRECEK Blue) -->
+    <header class="bg-[#2E79E6] text-white pt-6 pb-14 px-4 relative z-0 shadow-md">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <!-- Firecek Brand Logo -->
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center text-white">
+                    <span class="text-2xl font-black tracking-tight uppercase">FIRE</span>
+                    <!-- Checkmark Circle Icon as seen on screenshot -->
+                    <div
+                        class="bg-white text-[#2E79E6] rounded-full p-0.5 ml-1 flex items-center justify-center w-6 h-6 shadow-sm">
+                        <i data-lucide="check" class="w-4 h-4 stroke-[4.5]"></i>
+                    </div>
+                    <span class="text-2xl font-black tracking-tight uppercase ml-1">CEK</span>
+                </div>
+            </div>
+
+            <!-- Connection & Live Status -->
+            <div
+                class="flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+                <span class="flex h-2 w-2 relative">
+                    <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                </span>
+                <span class="text-xs font-semibold tracking-wide uppercase">Siap Scan</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Panel with elegant curved top edge overlapping the blue header -->
+    <main class="flex-grow max-w-md w-full mx-auto px-4 -mt-8 relative z-10 pb-8">
+
+        <!-- Curved body card container -->
+        <div
+            class="bg-white rounded-t-[32px] shadow-xl p-5 border border-slate-100 min-h-[70vh] flex flex-col space-y-6">
+
+            <!-- Tab Navigation (Camera vs Upload File) -->
+            <div class="bg-slate-100 p-1 rounded-2xl flex space-x-1 border border-slate-200">
+                <button id="btn-tab-camera" onclick="switchTab('camera')"
+                    class="flex-1 py-3 px-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center space-x-2 bg-white text-[#2E79E6] shadow-sm">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span>Kamera Langsung</span>
+                </button>
+                <button id="btn-tab-file" onclick="switchTab('file')"
+                    class="flex-1 py-3 px-3 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-800">
+                    <i data-lucide="image" class="w-4 h-4"></i>
+                    <span>Unggah Gambar</span>
+                </button>
+            </div>
+
+            <!-- TAB 1: Live Camera Scanner Area -->
+            <div id="tab-camera" class="flex flex-col space-y-4">
+
+                <!-- Quick camera switcher & Torch -->
+                <div
+                    class="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <div class="flex-grow">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Perangkat
+                            Kamera</span>
+                        <div class="relative">
+                            <select id="camera-select"
+                                class="w-full bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg focus:ring-[#2E79E6] focus:border-[#2E79E6] p-2 pr-8 appearance-none cursor-pointer">
+                                <option value="">Mencari kamera aktif...</option>
+                            </select>
+                            <div
+                                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btn-toggle-torch"
+                        class="p-3 rounded-xl bg-slate-200 text-slate-600 active-tap hover:bg-slate-300 transition hidden"
+                        title="Nyalakan Senter">
+                        <i data-lucide="zap" id="icon-torch" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Custom Viewfinder -->
+                <div
+                    class="relative bg-slate-900 rounded-3xl overflow-hidden aspect-square shadow-inner flex items-center justify-center">
+
+                    <!-- Viewfinder target focus lines overlay (Matching Firecek Brand Blue) -->
+                    <div id="scanner-view-overlay"
+                        class="absolute inset-0 border-2 border-transparent z-10 pointer-events-none flex items-center justify-center">
+                        <div
+                            class="w-2/3 h-2/3 border-2 border-white/20 rounded-2xl relative shadow-[0_0_0_9999px_rgba(15,23,42,0.55)]">
+                            <!-- Visual corner accents -->
+                            <div
+                                class="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-[#2E79E6] rounded-tl-lg">
+                            </div>
+                            <div
+                                class="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-[#2E79E6] rounded-tr-lg">
+                            </div>
+                            <div
+                                class="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-[#2E79E6] rounded-bl-lg">
+                            </div>
+                            <div
+                                class="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-[#2E79E6] rounded-br-lg">
+                            </div>
+
+                            <!-- Laser scan animation -->
+                            <div
+                                class="laser-line absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#2E79E6] to-transparent shadow-[0_0_10px_#2E79E6]">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live feed from camera -->
+                    <div id="qr-reader" class="w-full h-full object-cover"></div>
+
+                    <!-- Camera Off Placeholder -->
+                    <div id="camera-placeholder"
+                        class="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center z-20">
+                        <div
+                            class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-slate-400 mb-4 animate-pulse">
+                            <i data-lucide="video-off" class="w-8 h-8 text-[#2E79E6]"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-white">Kamera Belum Aktif</h3>
+                        <p class="text-xs text-slate-400 max-w-xs mt-1 mb-6">Ketuk tombol di bawah untuk memberikan izin
+                            dan mengaktifkan kamera secara real-time.</p>
+                        <button onclick="startScanning()"
+                            class="w-full py-3.5 px-6 rounded-2xl bg-[#2E79E6] hover:bg-blue-700 text-white font-bold text-sm active-tap transition shadow-lg shadow-blue-500/30 flex items-center justify-center space-x-2">
+                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                            <span>Nyalakan Pemindai</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Footer controls when Active -->
+                <div id="camera-active-footer"
+                    class="flex items-center justify-between p-3 bg-blue-50 rounded-2xl border border-blue-100 hidden">
+                    <span class="text-xs text-[#2E79E6] font-semibold flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-[#2E79E6] animate-ping"></span>
+                        <span>Memindai...</span>
+                    </span>
+                    <button onclick="stopScanning()"
+                        class="px-3.5 py-1.5 rounded-xl bg-slate-200 text-slate-700 active-tap hover:bg-slate-300 font-bold text-xs transition">
+                        Matikan Kamera
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: File Upload Scanner -->
+            <div id="tab-file" class="hidden flex flex-col space-y-4">
+                <div id="drop-zone"
+                    class="border-2 border-dashed border-slate-300 hover:border-[#2E79E6] rounded-3xl p-8 text-center bg-slate-50 cursor-pointer transition flex flex-col items-center justify-center space-y-3">
+                    <input type="file" id="qr-file-input" accept="image/*" class="hidden">
+                    <div
+                        class="w-14 h-14 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-[#2E79E6]">
+                        <i data-lucide="upload-cloud" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-slate-700">Sentuh untuk Unggah</p>
+                        <p class="text-xs text-slate-400 mt-1">Atau letakkan berkas gambar QR di sini</p>
+                    </div>
+                </div>
+
+                <div id="file-error-alert"
+                    class="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs flex items-start space-x-2 hidden">
+                    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                    <span>Gagal mendeteksi kode QR. Silakan periksa kembali gambar atau coba sudut lain yang lebih
+                        jelas.</span>
+                </div>
+            </div>
+
+            <!-- SCAN HISTORY & SETTINGS -->
+            <div class="bg-slate-50 rounded-3xl p-4 border border-slate-100 flex flex-col space-y-4">
+
+                <!-- Toggle switch settings -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-700">Redirect Otomatis Instan</h4>
+                        <p class="text-[10px] text-slate-400">Buka otomatis di tab baru saat QR terdeteksi</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="pref-auto-redirect" checked class="sr-only peer">
+                        <div
+                            class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2E79E6]">
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Horizontal Separator -->
+                <div class="h-[1px] bg-slate-200"></div>
+
+                <!-- Short Session History List -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-slate-700">Riwayat Sesi Ini</h4>
+                        <button id="btn-clear-history" onclick="clearHistory()"
+                            class="text-[10px] text-slate-400 hover:text-rose-500 transition font-bold flex items-center space-x-1">
+                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            <span>Bersihkan</span>
+                        </button>
+                    </div>
+
+                    <div id="history-list" class="space-y-2 max-h-[140px] overflow-y-auto">
+                        <div id="history-empty" class="text-[11px] text-slate-400 text-center py-4">
+                            Belum ada riwayat pemindaian
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- POP-UP SCAN RESULT MODAL OVERLAY -->
+    <div id="result-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+
+        <!-- Modal Card Container (Styled exact matching reference image) -->
+        <div class="bg-white rounded-[32px] shadow-2xl border border-slate-100 max-w-sm w-full overflow-hidden transform scale-95 transition-all duration-300"
+            id="modal-card">
+
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <span class="text-[11px] font-extrabold text-slate-500 tracking-widest uppercase">HASIL SCAN</span>
+                <span id="scan-type-badge"
+                    class="px-3 py-1 text-[10px] font-extrabold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wide">
+                    TEKS / FIRECEK
+                </span>
+            </div>
+
+            <!-- Modal Body Content -->
+            <div class="p-6 flex flex-col space-y-5">
+
+                <!-- Scan Status Message -->
+                <div class="text-center sm:text-left">
+                    <h3
+                        class="text-sm font-bold text-slate-800 flex items-center justify-center sm:justify-start space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span>Berhasil Memindai QR Code!</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">Sistem sedang memproses hasil pemindaian dan
+                        bersiap mengarahkan Anda ke dashboard Firecek.</p>
+                </div>
+
+                <!-- Redirect Countdown Banner (Light Green Alert Banner matching Screenshot) -->
+                <div id="countdown-banner"
+                    class="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4 flex flex-col space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-emerald-800 flex items-center space-x-2 font-bold">
+                            <!-- Spinning loader icon matching reference visual -->
+                            <i data-lucide="loader" class="w-4 h-4 animate-spin text-emerald-500"></i>
+                            <span>Membuka di Tab Baru (<span id="countdown-number"
+                                    class="font-black text-sm">3</span>s)...</span>
+                        </span>
+                        <button onclick="cancelRedirect()"
+                            class="text-xs text-slate-500 hover:text-slate-800 font-bold underline transition"
+                            id="btn-cancel-redirect">
+                            Batalkan
+                        </button>
+                    </div>
+
+                    <!-- Progress Bar tracking -->
+                    <div class="w-full bg-slate-150 h-1.5 rounded-full overflow-hidden bg-emerald-100/60">
+                        <div id="countdown-progress"
+                            class="bg-emerald-500 h-full w-full transition-all duration-100 ease-linear"></div>
+                    </div>
+                </div>
+
+                <!-- Action Controls (Matching Screenshot buttons) -->
+                <div class="flex gap-3">
+                    <a id="btn-open-link" href="#" target="_blank"
+                        class="flex-grow py-3.5 px-4 rounded-2xl bg-[#2E79E6] hover:bg-blue-700 text-white font-bold text-xs text-center active-tap transition shadow-lg shadow-blue-500/25 flex items-center justify-center space-x-2">
+                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                        <span>Buka Sekarang</span>
+                    </a>
+                    <button onclick="closeResultModal()"
+                        class="px-5 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 active-tap font-bold text-xs transition">
+                        Scan Lagi
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Global Float Notifications -->
+    <div id="toast-container"
+        class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-11/12">
+    </div>
+
+    <!-- Footer Area matching white brand colors -->
+    <footer class="bg-white border-t border-slate-100 py-6 text-center text-[10px] text-slate-400 mt-10">
+        <p class="font-bold">© 2026 Firecek QR Pemindai</p>
+        <p class="mt-0.5">Pemindaian lokal, data aman & terenkripsi di browser.</p>
+    </footer>
+
+    <!-- Logic Engine & App Handlers -->
+    <script>
+        let currentTab = 'camera';
+        let html5QrCode = null;
+        let activeCameraId = null;
+        let isScanningActive = false;
+        let isFlashSupported = false;
+        let isFlashOn = false;
+
+        let countdownInterval = null;
+        let countdownValue = 3;
+        let currentRedirectUrl = '';
+        const COUNTDOWN_TOTAL_DURATION = 3000;
+        let isRedirectCancelled = false;
+
+        const prefAutoRedirectInput = document.getElementById('pref-auto-redirect');
+        let scanHistory = [];
+
+        // Dynamic synth scan beep sound generator
+        function playScanBeep() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(950, audioCtx.currentTime); // Firecek success beep
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                oscillator.stop(audioCtx.currentTime + 0.12);
+            } catch (e) {
+                console.warn("Audio Context blocked or failed", e);
+            }
+        }
+
+        // Beautiful customized snackbar messages
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `p-3.5 rounded-2xl border shadow-lg flex items-start space-x-2.5 transition-all duration-350 translate-y-2 opacity-0 pointer-events-auto w-full `;
+
+            if (type === 'success') {
+                toast.className += 'bg-emerald-50 border-emerald-100 text-emerald-800';
+            } else if (type === 'error') {
+                toast.className += 'bg-rose-50 border-rose-100 text-rose-800';
+            } else if (type === 'warning') {
+                toast.className += 'bg-amber-50 border-amber-100 text-amber-800';
+            } else {
+                toast.className += 'bg-blue-50 border-blue-100 text-blue-800';
+            }
+
+            const iconName = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-octagon' : (type === 'warning' ? 'alert-triangle' : 'info'));
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                <div class="flex-1 text-xs font-semibold leading-relaxed">${message}</div>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-700 transition">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 15);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 350);
+            }, 3500);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            html5QrCode = new Html5Qrcode("qr-reader");
+
+            // Query devices
+            Html5Qrcode.getCameras().then(devices => {
+                const select = document.getElementById('camera-select');
+                if (devices && devices.length > 0) {
+                    select.innerHTML = '';
+
+                    let backCamId = null;
+                    devices.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.id;
+                        option.textContent = device.label || `Kamera ${select.children.length + 1}`;
+                        select.appendChild(option);
+
+                        // Auto-prefer rear environment cameras
+                        if (device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('belakang') || device.label.toLowerCase().includes('rear') || device.label.toLowerCase().includes('environment')) {
+                            backCamId = device.id;
+                        }
+                    });
+
+                    if (backCamId) {
+                        select.value = backCamId;
+                    }
+
+                    activeCameraId = select.value;
+                } else {
+                    select.innerHTML = '<option value="">Kamera tidak ditemukan</option>';
+                }
+            }).catch(err => {
+                console.error("Camera detect error: ", err);
+                const select = document.getElementById('camera-select');
+                select.innerHTML = '<option value="">Gagal mendeteksi kamera</option>';
+            });
+
+            setupFileDropZone();
+        });
+
+        function switchTab(tab) {
+            if (tab === currentTab) return;
+            currentTab = tab;
+
+            const btnCam = document.getElementById('btn-tab-camera');
+            const btnFile = document.getElementById('btn-tab-file');
+            const tabCam = document.getElementById('tab-camera');
+            const tabFile = document.getElementById('tab-file');
+
+            if (tab === 'camera') {
+                btnCam.className = "flex-1 py-3 px-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center space-x-2 bg-white text-[#2E79E6] shadow-sm";
+                btnFile.className = "flex-1 py-3 px-3 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-800";
+                tabCam.classList.remove('hidden');
+                tabFile.classList.add('hidden');
+            } else {
+                if (isScanningActive) {
+                    stopScanning();
+                }
+                btnFile.className = "flex-1 py-3 px-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center space-x-2 bg-white text-[#2E79E6] shadow-sm";
+                btnCam.className = "flex-1 py-3 px-3 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-800";
+                tabFile.classList.remove('hidden');
+                tabCam.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('camera-select').addEventListener('change', function () {
+            activeCameraId = this.value;
+            if (isScanningActive) {
+                stopScanning().then(() => {
+                    startScanning();
+                });
+            }
+        });
+
+        function startScanning() {
+            if (!activeCameraId) {
+                showNotification("Silakan tentukan perangkat kamera terlebih dahulu.", "error");
+                return;
+            }
+
+            const placeholder = document.getElementById('camera-placeholder');
+            const footer = document.getElementById('camera-active-footer');
+            const overlay = document.getElementById('scanner-view-overlay');
+
+            placeholder.classList.add('hidden');
+            footer.classList.remove('hidden');
+            overlay.classList.add('opacity-100');
+
+            // Responsive Scan Box setup for mobile viewports
+            const config = {
+                fps: 20,
+                qrbox: function (width, height) {
+                    const minDimension = Math.min(width, height);
+                    return {
+                        width: Math.floor(minDimension * 0.75),
+                        height: Math.floor(minDimension * 0.75)
+                    };
+                },
+                aspectRatio: 1.0
+            };
+
+            html5QrCode.start(
+                activeCameraId,
+                config,
+                (decodedText) => {
+                    onScanSuccess(decodedText);
+                },
+                (errorMessage) => { }
+            ).then(() => {
+                isScanningActive = true;
+                checkFlashSupport();
+            }).catch(err => {
+                console.error("Camera fail: ", err);
+                placeholder.classList.remove('hidden');
+                footer.classList.add('hidden');
+                overlay.classList.remove('opacity-100');
+                showNotification("Akses kamera ditolak. Berikan izin di browser Anda.", "error");
+            });
+        }
+
+        async function stopScanning() {
+            if (!isScanningActive) return;
+
+            const placeholder = document.getElementById('camera-placeholder');
+            const footer = document.getElementById('camera-active-footer');
+            const overlay = document.getElementById('scanner-view-overlay');
+            const torchBtn = document.getElementById('btn-toggle-torch');
+
+            try {
+                await html5QrCode.stop();
+                isScanningActive = false;
+                isFlashOn = false;
+                updateTorchUI();
+                torchBtn.classList.add('hidden');
+
+                placeholder.classList.remove('hidden');
+                footer.classList.add('hidden');
+                overlay.classList.remove('opacity-100');
+            } catch (err) {
+                console.error("Error stopping: ", err);
+            }
+        }
+
+        function checkFlashSupport() {
+            const torchBtn = document.getElementById('btn-toggle-torch');
+            try {
+                const state = html5QrCode.getRunningTrackCameraCapabilities();
+                if (state.torch) {
+                    isFlashSupported = true;
+                    torchBtn.classList.remove('hidden');
+                    torchBtn.onclick = toggleTorch;
+                } else {
+                    isFlashSupported = false;
+                    torchBtn.classList.add('hidden');
+                }
+            } catch (err) {
+                isFlashSupported = false;
+                torchBtn.classList.add('hidden');
+            }
+        }
+
+        function toggleTorch() {
+            if (!isScanningActive || !isFlashSupported) return;
+            isFlashOn = !isFlashOn;
+            html5QrCode.applyVideoConstraints({
+                advanced: [{ torch: isFlashOn }]
+            }).then(() => {
+                updateTorchUI();
+            }).catch(() => {
+                isFlashOn = !isFlashOn;
+                showNotification("Senter tidak dapat diubah.", "error");
+            });
+        }
+
+        function updateTorchUI() {
+            const btn = document.getElementById('btn-toggle-torch');
+            const icon = document.getElementById('icon-torch');
+            if (isFlashOn) {
+                btn.className = "p-3 rounded-xl bg-amber-400 text-slate-900 active-tap transition";
+                icon.classList.add('fill-current');
+            } else {
+                btn.className = "p-3 rounded-xl bg-slate-200 text-slate-600 active-tap transition";
+                icon.classList.remove('fill-current');
+            }
+        }
+
+        function isValidURL(str) {
+            try {
+                const url = new URL(str);
+                return url.protocol === "http:" || url.protocol === "https:";
+            } catch (_) {
+                // Check if string looks like domain to capture short non-protocol entries
+                const pattern = /^(?!(https?:\/\/))([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/;
+                return pattern.test(str);
+            }
+        }
+
+        // Firecek specialized router helper
+        function resolveRedirectTarget(content) {
+            const trimmed = content.trim();
+            if (isValidURL(trimmed)) {
+                if (!/^https?:\/\//i.test(trimmed)) {
+                    return `https://${trimmed}`;
+                }
+                return trimmed;
+            } else {
+                // Reconstruct plain data to specific Firecek path as seen in URL on Screenshot 2026-06-12 at 13.30.12.jpg
+                return `http://web.firecek.com/d/${encodeURIComponent(trimmed)}`;
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            playScanBeep();
+
+            if (isScanningActive) {
+                stopScanning();
+            }
+
+            const targetUrl = resolveRedirectTarget(decodedText);
+            const isUrlType = isValidURL(decodedText.trim());
+
+            openResultModal(decodedText, targetUrl, isUrlType);
+            addToHistory(decodedText, targetUrl, isUrlType);
+
+            if (prefAutoRedirectInput.checked) {
+                startRedirectSequence(targetUrl);
+            }
+        }
+
+        function openResultModal(content, targetUrl, isUrlType) {
+            const modal = document.getElementById('result-modal');
+            const card = document.getElementById('modal-card');
+            const typeBadge = document.getElementById('scan-type-badge');
+            const btnOpen = document.getElementById('btn-open-link');
+
+            btnOpen.href = targetUrl;
+
+            // Style the badge based on type matching reference Screenshot 2026-06-12 at 13.40.22.png
+            if (isUrlType) {
+                typeBadge.textContent = "LINK LANGSUNG";
+                typeBadge.className = "px-3 py-1 text-[10px] font-extrabold rounded-full bg-blue-50 text-[#2E79E6] border border-blue-200 uppercase tracking-wide";
+            } else {
+                typeBadge.textContent = "TEKS / FIRECEK";
+                typeBadge.className = "px-3 py-1 text-[10px] font-extrabold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wide";
+            }
+
+            // Trigger Modal Open (smooth transition scale and fade)
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+            card.classList.remove('scale-95');
+            card.classList.add('scale-100');
+
+            cancelRedirect();
+        }
+
+        function closeResultModal() {
+            cancelRedirect();
+
+            const modal = document.getElementById('result-modal');
+            const card = document.getElementById('modal-card');
+
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.classList.remove('opacity-100');
+            card.classList.add('scale-95');
+            card.classList.remove('scale-100');
+
+            // Resume Scanning if current active view is Camera
+            if (currentTab === 'camera') {
+                startScanning();
+            }
+        }
+
+        function startRedirectSequence(targetUrl) {
+            currentRedirectUrl = targetUrl;
+            isRedirectCancelled = false;
+            countdownValue = 3;
+
+            const banner = document.getElementById('countdown-banner');
+            const textNum = document.getElementById('countdown-number');
+            const progress = document.getElementById('countdown-progress');
+
+            banner.classList.remove('hidden');
+            textNum.textContent = countdownValue;
+            progress.style.width = '100%';
+
+            let totalIntervals = 30;
+            let remainingIntervals = totalIntervals;
+
+            countdownInterval = setInterval(() => {
+                remainingIntervals--;
+                progress.style.width = `${(remainingIntervals / totalIntervals) * 100}%`;
+
+                let secondsLeft = Math.ceil(remainingIntervals / 10);
+                if (secondsLeft !== countdownValue) {
+                    countdownValue = secondsLeft;
+                    textNum.textContent = countdownValue;
+                }
+
+                if (remainingIntervals <= 0) {
+                    clearInterval(countdownInterval);
+                    executeRedirect();
+                }
+            }, 100);
+        }
+
+        function cancelRedirect() {
+            isRedirectCancelled = true;
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('countdown-banner').classList.add('hidden');
+        }
+
+        function executeRedirect() {
+            if (isRedirectCancelled || !currentRedirectUrl) return;
+
+            showNotification("Membuka di tab baru...", "success");
+
+            setTimeout(() => {
+                const newWindow = window.open(currentRedirectUrl, '_blank');
+
+                // If browser blocks popups/tabs, fallback nicely
+                if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                    showNotification("Pop-up diblokir browser. Mohon tekan tombol 'Buka Sekarang' secara manual.", "warning");
+                }
+            }, 300);
+        }
+
+        function setupFileDropZone() {
+            const zone = document.getElementById('drop-zone');
+            const input = document.getElementById('qr-file-input');
+            const errorAlert = document.getElementById('file-error-alert');
+
+            zone.addEventListener('click', () => input.click());
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('border-[#2E79E6]', 'bg-blue-50/20');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('border-[#2E79E6]', 'bg-blue-50/20');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('border-[#2E79E6]', 'bg-blue-50/20');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            });
+
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    processFile(e.target.files[0]);
+                }
+            });
+        }
+
+        function processFile(file) {
+            const errorAlert = document.getElementById('file-error-alert');
+            errorAlert.classList.add('hidden');
+
+            if (!file.type.startsWith('image/')) {
+                showNotification("Silakan masukkan tipe berkas gambar.", "error");
+                return;
+            }
+
+            showNotification("Membaca data gambar...", "info");
+
+            html5QrCode.scanFile(file, true)
+                .then(decodedText => {
+                    onScanSuccess(decodedText);
+                })
+                .catch(err => {
+                    console.error(err);
+                    errorAlert.classList.remove('hidden');
+                    showNotification("Gagal membaca kode QR. Coba ganti gambar.", "error");
+                });
+        }
+
+        function addToHistory(content, targetUrl, isUrlType) {
+            const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+            scanHistory.unshift({
+                id: Date.now(),
+                content: content,
+                target: targetUrl,
+                isUrl: isUrlType,
+                time: timestamp
+            });
+
+            if (scanHistory.length > 8) {
+                scanHistory.pop();
+            }
+
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            const historyList = document.getElementById('history-list');
+            const emptyState = document.getElementById('history-empty');
+
+            const items = historyList.querySelectorAll('.history-item');
+            items.forEach(el => el.remove());
+
+            if (scanHistory.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            scanHistory.forEach(item => {
+                const row = document.createElement('div');
+                row.className = "history-item p-2.5 bg-white rounded-xl border border-slate-150 flex items-center justify-between text-xs transition hover:border-[#2E79E6]/30";
+
+                const iconClass = item.isUrl ? 'text-[#2E79E6] bg-blue-50' : 'text-emerald-700 bg-emerald-50';
+                const iconName = item.isUrl ? 'link' : 'file-text';
+
+                row.innerHTML = `
+                    <div class="flex items-center space-x-2 min-w-0 flex-1">
+                        <div class="p-1.5 rounded-lg flex-shrink-0 ${iconClass}">
+                            <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="font-bold text-slate-700 truncate pr-1">${item.content}</p>
+                            <p class="text-[9px] text-slate-400 mt-0.5 truncate">${item.target}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0 ml-1">
+                        <span class="text-[9px] text-slate-400 font-bold">${item.time}</span>
+                        <a href="${item.target}" target="_blank" class="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-[#2E79E6] hover:text-white transition text-[10px]">
+                            Buka
+                        </a>
+                    </div>
+                `;
+
+                historyList.appendChild(row);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Clear session history log
+        function clearHistory() {
+            if (scanHistory.length === 0) return;
+            scanHistory = [];
+            renderHistoryList();
+            showNotification("Riwayat sesi berhasil dibersihkan.", "info");
+        }
+    </script>
+</body>
+
+</html>
