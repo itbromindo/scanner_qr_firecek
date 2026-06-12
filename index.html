@@ -621,8 +621,9 @@
                 }
                 return trimmed;
             } else {
-                // Reconstruct plain data to specific Firecek path as seen in URL on Screenshot 2026-06-12 at 13.30.12.jpg
-                return `http://web.firecek.com/d/${encodeURIComponent(trimmed)}`;
+                // Reconstruct plain data to specific Firecek path
+                // Using .replace(/%3D/g, '=') to keep '=' visible as requested by user
+                return `https://web.firecek.com/d/${encodeURIComponent(trimmed).replace(/%3D/g, '=')}`;
             }
         }
 
