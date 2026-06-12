@@ -622,8 +622,11 @@
                 return trimmed;
             } else {
                 // Reconstruct plain data to specific Firecek path
-                // Using .replace(/%3D/g, '=') to keep '=' visible as requested by user
-                return `https://web.firecek.com/d/${encodeURIComponent(trimmed).replace(/%3D/g, '=')}`;
+                // We decode first to handle cases where QR might already be encoded
+                const cleanContent = decodeURIComponent(trimmed);
+                const finalUrl = `https://web.firecek.com/d/${cleanContent}`;
+                console.log("Redirecting to:", finalUrl);
+                return finalUrl;
             }
         }
 
